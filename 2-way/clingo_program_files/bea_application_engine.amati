@@ -1,0 +1,110 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%
+%
+% want the available grades (will vary depending on the task)
+%
+
+available_grade(Grade):-
+        actual_grade(_, Grade, _).
+
+1 { predicted_grade(Grade) : available_grade(Grade) } 1 .
+
+#show predicted_grade/1.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Select a rule
+
+1 { selected_rule(Rule) : rule(Rule) } 1 .
+
+#show selected_rule/1.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Calculate the performance of the selection
+%
+% The inclusion of predicted_grade/1 is unnecessary,
+% but I'm including it at the moment because it's 
+% helping me think about the problem.
+
+
+
+% Positive covered
+positive_covered(ResponseID) :- 
+        selected_rule(Rule),
+        predicted_grade(Grade),
+        covers(Rule, ResponseID),
+        actual_grade(ResponseID, Grade, pos).
+
+% Negative covered
+negative_covered(ResponseID) :-
+        selected_rule(Rule),
+        predicted_grade(Grade),
+        covers(Rule, ResponseID),
+        actual_grade(ResponseID, Grade, neg).
+
+
+
+% Count the number in each bucket
+
+total_accurate_predictions(N) :- N = #count{ Response: positive_covered(Response)}.
+total_inaccurate_predictions(N) :- N = #count{ Response: negative_covered(Response)}.
+
+#show positive_covered/1.
+#show negative_covered/1.
+
+#show total_accurate_predictions/1.
+#show total_inaccurate_predictions/1.
+
+
+%%% Also need the rule length for compression
+literals_in_rule(NumLiterals) :-
+        selected_rule(Rule),
+        literals_in_rule(Rule, NumLiterals).
+
+
+%%% And calculate the performance. We've got accuracy and coverage here
+
+% Accuracy
+% Need to avoid division by zero if P+N=0:
+evaluate_rule(accuracy, 0) :- total_accurate_predictions(0).
+
+evaluate_rule(accuracy, 100*P/(P+N)) :- total_accurate_predictions(P),
+                                        P > 0,
+                                        total_inaccurate_predictions(N).
+
+% Coverage
+evaluate_rule(coverage, P-N) :- total_accurate_predictions(P),
+                                total_inaccurate_predictions(N).
+
+%Compression
+evaluate_rule(compression, P-N-L+1) :- total_accurate_predictions(P),
+                                     total_inaccurate_predictions(N),
+                                     literals_in_rule(L).
+
+% Precision
+evaluate_rule(precision, 0) :- total_accurate_predictions(0).
+
+evaluate_rule(precision, 100*TP/(TP + FP)) :- total_accurate_predictions(TP),
+                                              TP > 0,
+                                              total_inaccurate_predictions(FP).
+
+#show evaluate_rule/2.
+
+
+
+
+%%% Optimise! (Here's the work :-) )
+
+#maximize{ Eval : evaluate_rule(compression, Eval) }.
+
+
+%%% Additional constraints which we may use later.
+
+%% Individual rules must have precision of at least 90%
+:- evaluate_rule(precision, Precision), Precision<90.
+
+%% Chosen rule must cover at least 2 instances.
+ :- total_accurate_predictions(TruePositives), TruePositives < 2.
+

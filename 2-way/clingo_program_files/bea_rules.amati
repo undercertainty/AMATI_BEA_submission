@@ -1,0 +1,227 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                        %
+%             Here is where we put                       %
+%                 the rules                              %
+%                                                        %
+%                                                        %
+%                                                        %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Note, there's still some machinery in here that's 
+% intended for use with key information. I'm leaving
+% it in, rather than trying to replace a lot of things
+% I took out later.
+
+
+
+% Let's create a few parameters. 5 parameters across basics
+% and key information should be plenty for the moment.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+%
+% and appropriate parameters for the model
+%
+
+parameter(term).
+
+% Any Lemma can be a parameter
+0 {parameter(1..5, Lemma) : student_response(ResponseID, _QuestionID),
+            lemma_in_doc(ResponseID, _, Lemma) } 5.
+
+
+% Don't have two parameters with the same number
+:- parameter(N, Lemma1), 
+   parameter(N, Lemma2),
+   Lemma1 != Lemma2.
+
+% Don't have two parameters with the same lemma
+:- parameter(N1, Lemma), 
+   parameter(N2, Lemma),
+   N1 != N2.
+
+#show parameter/2.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% define the rules based on the chosen parameter
+% and grade
+%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% rule1
+%
+% Term contains a lemma which is one of the
+% parameters, and not a stopword
+
+rule(rule1).
+
+covers(rule1, Response):-
+        student_response(Response, _Question),
+        parameter(1, Lemma),
+        lemma_in_doc(Response, _, Lemma),
+        not stopword(Lemma).
+
+literals_in_rule(rule1, 1).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% rule2
+%
+% Term contains two lemmata which are two of the
+% parameters, and not stopwords
+
+rule(rule2).
+
+covers(rule2, Response):-
+        student_response(Response, _Question),
+        parameter(1, Lemma1),
+        lemma_in_doc(Response, _, Lemma1),        
+        parameter(2, Lemma2),
+        lemma_in_doc(Response, _, Lemma2),
+        not stopword(Lemma1),
+        not stopword(Lemma2).
+
+literals_in_rule(rule2, 2).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% rule3
+%
+% Term contains two lemmata which are two of the
+% parameters in linear order, and not stopwords
+
+rule(rule3).
+
+covers(rule3, Response):-
+        student_response(Response, _Question),
+        parameter(1, Lemma1),
+        lemma_in_doc(Response, I1, Lemma1),        
+        parameter(2, Lemma2),
+        lemma_in_doc(Response, I2, Lemma2),
+        not stopword(Lemma1),
+        not stopword(Lemma2),
+        I1 < I2.
+
+literals_in_rule(rule3, 3).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Key information rule 1
+%
+% The response contains a term which is
+% key information
+
+rule(ki_rule1).
+
+covers(ki_rule1, Response):-
+        student_response(Response, Question),
+        question(Question),
+        reference_answer(Answer),
+        
+        % key information definition
+        lemma_in_doc(Response, _, Lemma),
+        lemma_in_doc(Answer, _, Lemma),
+
+        parameter(1, Lemma),
+
+        not lemma_in_doc(Question, _, Lemma),
+        not stopword(Lemma).
+
+literals_in_rule(ki_rule1, 3).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Key information rule 2
+%
+% The response contains 2 terms which are
+% key information
+
+rule(ki_rule2).
+
+covers(ki_rule2, Response):-
+        student_response(Response, Question),
+        question(Question),
+        reference_answer(Answer),
+        
+        % key information definition
+        lemma_in_doc(Response, _, Lemma1),
+        lemma_in_doc(Answer, _, Lemma1),
+
+        lemma_in_doc(Response, _, Lemma2),
+        lemma_in_doc(Answer, _, Lemma2),
+
+        parameter(1, Lemma1),
+        parameter(2, Lemma2),
+        
+        not lemma_in_doc(Question, _, Lemma1),
+        not lemma_in_doc(Question, _, Lemma2),
+        not stopword(Lemma1),
+        not stopword(Lemma2).
+
+literals_in_rule(ki_rule2, 4).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Key information rule 3
+%
+% The response contains 2 terms, one of which
+% is key information
+
+rule(ki_rule3).
+
+covers(ki_rule3, Response):-
+        student_response(Response, Question),
+        question(Question),
+        reference_answer(Answer),
+        
+        % key information definition
+        lemma_in_doc(Response, _, Lemma1),
+        lemma_in_doc(Answer, _, Lemma1),
+
+        lemma_in_doc(Response, _, Lemma2),
+        lemma_in_doc(Answer, _, Lemma2),
+        
+        parameter(1, Lemma1),
+        parameter(2, Lemma2),
+        
+        not lemma_in_doc(Question, _, Lemma1),
+        not stopword(Lemma1),
+        not stopword(Lemma2).
+
+literals_in_rule(ki_rule3, 3).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Key information rule 4
+%
+% The response contains an unspecified term
+% which is key information
+
+rule(ki_rule4).
+
+covers(ki_rule4, Response):-
+        student_response(Response, Question),
+        question(Question),
+        reference_answer(Answer),
+        
+        % key information definition
+        lemma_in_doc(Response, _, Lemma),
+        lemma_in_doc(Answer, _, Lemma),
+        not lemma_in_doc(Question, _, Lemma),
+        not stopword(Lemma).
+
+literals_in_rule(ki_rule4, 3).
+

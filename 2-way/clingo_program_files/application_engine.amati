@@ -1,0 +1,152 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%
+%
+% want the available grades (will vary depending on the task)
+%
+
+available_grade(Grade):-
+        accuracy(_, _, Grade).
+
+1 { predicted_grade(Grade) : available_grade(Grade) } 1 .
+
+#show predicted_grade/1.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Select a rule
+
+1 { selected_rule(Rule) : rule(Rule) } 1 .
+
+#show selected_rule/1.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Calculate the performance of the selection
+%
+% The inclusion of predicted_grade/1 is unnecessary,
+% but I'm including it at the moment because it's 
+% helping me think about the problem.
+
+% True positive if correctly predict grade.
+true_positive(ResponseID) :- 
+        selected_rule(Rule),
+        predict(Rule, ResponseID, Grade),
+        accuracy(ResponseID, _, Grade),
+        predicted_grade(Grade).
+
+% True negative if correctly predict (not-grade).
+true_negative(ResponseID) :- 
+        selected_rule(Rule),
+        predict(Rule, ResponseID, PredictedGrade),
+        accuracy(ResponseID, _, ActualGrade),
+        not predicted_grade(PredictedGrade),
+        not predicted_grade(ActualGrade).
+
+% False positive if predict correct, but it's actually incorrect
+
+false_positive(ResponseID) :- 
+        selected_rule(Rule),
+        predict(Rule, ResponseID, PredictedGrade),
+        accuracy(ResponseID, _, ActualGrade),
+        predicted_grade(PredictedGrade),
+        not predicted_grade(ActualGrade).
+
+% False negative if predict incorrect, but it's actually correct
+
+false_negative(ResponseID) :- 
+        selected_rule(Rule),
+        predict(Rule, ResponseID, PredictedGrade),
+        accuracy(ResponseID, _, ActualGrade),
+        not predicted_grade(PredictedGrade),
+        predicted_grade(ActualGrade).
+
+
+% Count the number in each bucket
+
+total_true_positives(N) :- N = #count{ Response: true_positive(Response)}.
+total_true_negatives(N) :- N = #count{ Response: true_negative(Response)}.
+total_false_positives(N) :- N = #count{ Response: false_positive(Response)}.
+total_false_negatives(N) :- N = #count{ Response: false_negative(Response)}.
+
+#show true_positive/1.
+#show true_negative/1.
+#show false_positive/1.
+#show false_negative/1.
+
+#show total_true_positives/1.
+#show total_true_negatives/1.
+#show total_false_positives/1.
+#show total_false_negatives/1.
+
+
+accurate_prediction(Response) :- true_positive(Response).
+accurate_prediction(Response) :- true_negative(Response).
+
+inaccurate_prediction(Response) :- false_positive(Response).
+inaccurate_prediction(Response) :- false_negative(Response).
+
+
+total_accurate_predictions(X) :- X = #count{ Response: accurate_prediction(Response)}.
+total_inaccurate_predictions(X) :- X = #count{ Response: inaccurate_prediction(Response)}.
+
+%%% Also need the rule length for compression
+literals_in_rule(NumLiterals) :-
+        selected_rule(Rule),
+        literals_in_rule(Rule, NumLiterals).
+
+
+%%% And calculate the performance. We've got accuracy and coverage here
+
+% Accuracy
+% Need to avoid division by zero if P+N=0:
+evaluate_rule(accuracy, 0) :- total_accurate_predictions(0).
+
+evaluate_rule(accuracy, 100*P/(P+N)) :- total_accurate_predictions(P),
+                                        P > 0,
+                                        total_inaccurate_predictions(N).
+
+% Coverage
+evaluate_rule(coverage, P-N) :- total_true_positives(P),
+                                total_false_positives(N).
+
+%Compression
+evaluate_rule(compression, P-N-L+1) :- total_true_positives(P),
+                                     total_false_positives(N),
+                                     literals_in_rule(L).
+
+% Precision
+evaluate_rule(precision, 0) :- total_true_positives(0).
+
+evaluate_rule(precision, 100*TP/(TP + FP)) :- total_true_positives(TP),
+                                              TP > 0,
+                                              total_false_positives(FP).
+
+% #show evaluate_rule/2.
+
+
+
+% Easiest to evaluate if we also have a covered/1
+% predicate
+
+covered(ResponseID) :-
+        selected_rule(Rule),
+        predict(Rule, ResponseID, Grade),
+        predicted_grade(Grade).
+
+#show covered/1.
+
+%%% Optimise! (Here's the work :-) )
+
+#maximize{ Eval : evaluate_rule(compression, Eval) }.
+
+#show predict/3.
+
+%%% Additional constraints which we may use later.
+
+%% Individual rules must have precision of at least 95%
+:- evaluate_rule(precision, Precision), Precision<95.
+
+%% Chosen rule must cover at least 2 instances.
+:- total_true_positives(TruePositives), TruePositives < 2.
+
